@@ -1,5 +1,6 @@
 # Local .terraform directories
 .terraform/
+.terraform*
 
 # Terraform state files
 *.tfstate
@@ -34,3 +35,5 @@ terraform.rc
 # Ignore Git directories
 .git/
 .gitmodules
+
+tmp.file
