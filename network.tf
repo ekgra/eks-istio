@@ -86,3 +86,38 @@ resource "aws_security_group" "nodes_extra" {
     Name = "${var.cluster_name}-nodes-extra"
   }
 }
+
+
+# Allow EKS control plane (cluster SG) to reach kubelet on nodes (10250)
+resource "aws_security_group_rule" "nodes_extra_from_cluster_10250" {
+  type                     = "ingress"
+  description              = "EKS control plane -- kubelet logs/exec"
+  security_group_id        = aws_security_group.nodes_extra.id
+  source_security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  from_port                = 10250
+  to_port                  = 10250
+  protocol                 = "tcp"
+}
+
+# (Optional) allow HTTPS 443 from control plane to nodes (used by some addons/webhooks)
+resource "aws_security_group_rule" "nodes_extra_from_cluster_443" {
+  type                     = "ingress"
+  description              = "EKS control plane -- node HTTPS (defensive)"
+  security_group_id        = aws_security_group.nodes_extra.id
+  source_security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+}
+
+# Allow nodes (nodes_extra SG) to call API server (cluster SG) on 443
+resource "aws_security_group_rule" "cluster_from_nodes_443" {
+  type                     = "ingress"
+  description              = "Nodes -- EKS API server (CoreDNS, controllers)"
+  security_group_id        = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  source_security_group_id = aws_security_group.nodes_extra.id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+}
+
