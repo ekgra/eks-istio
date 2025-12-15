@@ -1,2 +1,0 @@
-aws eks update-kubeconfig --name demo-eks-istio --region ap-southeast-2
-
