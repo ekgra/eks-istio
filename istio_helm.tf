@@ -33,6 +33,7 @@ resource "helm_release" "istiod" {
   name             = "istiod"
   repository       = "https://istio-release.storage.googleapis.com/charts"
   chart            = "istiod"
+  replace          = true
   namespace        = kubernetes_namespace_v1.istio_system.metadata[0].name
   version          = var.istio_chart_version
   create_namespace = false

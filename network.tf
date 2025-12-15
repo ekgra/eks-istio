@@ -110,6 +110,18 @@ resource "aws_security_group_rule" "nodes_extra_from_cluster_443" {
   protocol                 = "tcp"
 }
 
+# Allow nodes (nodes_extra SG) to call API server (cluster SG) on 443
+resource "aws_security_group_rule" "cluster_from_nodes_443" {
+  type                     = "ingress"
+  description              = "Nodes -- EKS API server (CoreDNS, controllers)"
+  security_group_id        = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  source_security_group_id = aws_security_group.nodes_extra.id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+}
+
+
 # Allow EKS control plane to reach istiod webhook (Service 443 -> pod 15017)
 resource "aws_security_group_rule" "nodes_extra_from_cluster_15017" {
   type                     = "ingress"
