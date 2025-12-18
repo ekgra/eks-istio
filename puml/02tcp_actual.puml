@@ -1,0 +1,26 @@
+@startuml
+title Actual Istio TCP Strict mTLS Flow
+
+actor Client
+
+rectangle "IngressGateway Envoy" as ig
+rectangle "Redis Sidecar Envoy" as s1
+rectangle "Redis Container" as r
+
+Client --> ig : TLS handshake OK\n(Your cert)
+ig --> s1 : Istio mTLS\n(ALPN: istio)
+s1 --> r : plaintext TCP
+
+note right of ig
+Envoy must negotiate
+Istio mTLS with peer Envoy.
+NOT just TLS wrapping of TCP payload.
+end note
+
+note right of s1
+If Redis has no Envoy,
+this handshake fails →
+connection reset.
+end note
+
+@enduml
