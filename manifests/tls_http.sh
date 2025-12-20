@@ -123,6 +123,10 @@ YAML
 INGRESS=$(kubectl -n istio-system get svc istio-ingressgateway  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 echo $INGRESS
 
+
+echo sleeping 5 seconds ...
+sleep 5
+
 curl -v \
   --cacert /Users/outlander/workDir/study/18k8s/09EKS-istio/http.crt \
   --connect-to http.demo.local:443:$INGRESS:443 \

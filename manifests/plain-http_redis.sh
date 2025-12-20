@@ -1,3 +1,5 @@
+rm -rf *.crt *.key *.csr *.ext *.srl
+
 aws eks update-kubeconfig --name demo-eks-istio --region ap-southeast-2
 
 # ----------------
@@ -154,7 +156,7 @@ kubectl apply -f - <<'YAML'
       istio: ingressgateway
     servers:
       - port:
-          number: 9092
+          number: 6379
           name: tcp-redis
           protocol: TCP
         hosts:
@@ -174,7 +176,7 @@ kubectl apply -f - <<'YAML'
     hosts: ["*"]
     tcp:
       - match:
-          - port: 9092
+          - port: 6379
         route:
           - destination:
               host: redis.demo.svc.cluster.local
@@ -186,10 +188,12 @@ YAML
 INGRESS=$(kubectl -n istio-system get svc istio-ingressgateway  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 echo $INGRESS
 
+nslookup $INGRESS
+
 curl -v \
-  --connect-to http.demo.local:443:$INGRESS:443 \
+  --connect-to http.demo.local:80:$INGRESS:80 \
   http://http.demo.local/
 
-redis-cli -h "$INGRESS" -p 9092 PING
+redis-cli -h "$INGRESS" -p 6379 PING
 
-redis-cli -h redis.demo.local -p 9092 PING
+redis-cli -h redis.demo.local -p 6379 PING

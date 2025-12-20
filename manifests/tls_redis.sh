@@ -320,6 +320,7 @@ YAML
 
 redis-cli   --tls   --cacert ./ca.crt   --sni redis1.demo.local   -h redis1.demo.local   -p 9092   
 redis-cli   --tls   --cacert ./ca.crt   --sni redis2.demo.local   -h redis2.demo.local   -p 9092   
+redis-cli   --tls   --cacert ./ca.crt   --sni redis1.demo.local   -h redis1.demo.local   -p 9092   
 
 
 
