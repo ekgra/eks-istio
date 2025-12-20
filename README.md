@@ -19,7 +19,7 @@
     INGRESS=$(kubectl -n istio-system get svc istio-ingressgateway  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
     echo $INGRESS
 
-    redis-cli -h "$INGRESS" -p 9092 PING
+    redis-cli -h "$INGRESS" -p 6379 PING
     # -> PONG
     ```
 

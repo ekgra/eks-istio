@@ -1,6 +1,6 @@
 aws eks update-kubeconfig --name demo-eks-istio --region ap-southeast-2
 
-# ----------------
+# ---
 
 kubectl create namespace demo
 kubectl label ns demo istio-injection=enabled --overwrite=true
@@ -9,10 +9,10 @@ kubectl apply -n demo -f - <<'YAML'
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: demo-permissive
+  name: demo
 spec:
   mtls:
-    mode: PERMISSIVE
+    mode: STRICT
 YAML
 
 
@@ -20,40 +20,40 @@ kubectl apply -n demo -f - <<'YAML'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pod-http
+  name: http
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: pod-http }
+    matchLabels: { app: http }
   template:
     metadata:
-      labels: { app: pod-http }
+      labels: { app: http }
     spec:
       containers:
         - name: http-echo
           image: hashicorp/http-echo:0.2.3
           args: ["-text=hello-from-pod-http", "-listen=:8080"]
           ports: [{ containerPort: 8080 }]
----
+# ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: pod-http
+  name: http
 spec:
-  selector: { app: pod-http }
+  selector: { app: http }
   ports:
     - name: http
       port: 8080
       targetPort: 8080
 YAML
 
----
+# ---
 
 kubectl apply -f - <<'YAML'
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
-  name: demo-gw
+  name: http
   namespace: demo
 spec:
   selector:
@@ -67,40 +67,34 @@ spec:
         - "*"
 YAML
 
----
+# ---
 
 kubectl apply -f - <<'YAML'
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: pod-http-vs
+  name: http
   namespace: demo
 spec:
   hosts: ["*"]
-  gateways: ["demo/demo-gw"]
+  gateways: ["demo/http"]
   http:
     - match:
         - uri: { prefix: "/" }
       route:
         - destination:
-            host: pod-http.demo.svc.cluster.local
+            host: http.demo.svc.cluster.local
             port: { number: 8080 }
 YAML
 
----
-
-INGRESS=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-curl -s http://$INGRESS/
-# -> hello-from-pod-http
-
-
----
+# ---
 
 kubectl apply -f - <<'YAML'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
+  namespace: demo
 spec:
   replicas: 1
   selector:
@@ -119,13 +113,14 @@ spec:
             limits:   { memory: "128Mi" }
 YAML
 
----
+# ---
 
 kubectl apply -f - <<'YAML'
 apiVersion: v1
 kind: Service
 metadata:
   name: redis
+  namespace: demo
 spec:
   selector: { app: redis }
   ports:
@@ -135,51 +130,56 @@ spec:
       protocol: TCP
 YAML
 
----
+# ---
 
 kubectl apply -f - <<'YAML'
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
-  name: demo-gw-tcp
+  name: redis
   namespace: demo
 spec:
   selector:
     istio: ingressgateway
   servers:
     - port:
-        number: 9092
+        number: 6379
         name: tcp-redis
         protocol: TCP
       hosts:
         - "*"
 YAML
 
----
+# ---
 
 kubectl apply -f - <<'YAML'
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: redis-tcp-vs
+  name: redis
   namespace: demo
 spec:
-  gateways: ["demo/demo-gw-tcp"]
+  gateways: ["demo/redis"]
   hosts: ["*"]
   tcp:
     - match:
-        - port: 9092
+        - port: 6379
       route:
         - destination:
             host: redis.demo.svc.cluster.local
             port: { number: 6379 }
 YAML
 
----
+# ---
 
 INGRESS=$(kubectl -n istio-system get svc istio-ingressgateway  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 echo $INGRESS
 
+curl -s http://$INGRESS
+curl -v \
+  --connect-to http.demo.local:80:$INGRESS:80 \
+  http://http.demo.local/
+
 # If you have redis-cli locally:
-redis-cli -h "$INGRESS" -p 9092 PING
+redis-cli -h "$INGRESS" -p 6379 PING
 # -> PONG
