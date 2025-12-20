@@ -37,3 +37,9 @@ terraform.rc
 .gitmodules
 
 tmp.file
+
+*.key
+*.crt
+*.srl
+*.ext
+*.csr

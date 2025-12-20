@@ -1,0 +1,20 @@
+@startuml
+title Incorrect Assumption of TCP Flow in Istio STRICT mTLS
+
+skinparam rectangle {
+  BackgroundColor #eef
+}
+
+actor Client
+
+rectangle "NLB" as nlb
+rectangle "IngressGateway (Envoy)" as ig
+rectangle "Redis Sidecar (Envoy)" as s1
+rectangle "Redis Container" as r
+
+Client --> nlb : TLS (443/9092)
+nlb --> ig : TLS
+ig --> s1 : mTLS
+s1 --> r : raw TCP (Redis protocol)
+
+@enduml

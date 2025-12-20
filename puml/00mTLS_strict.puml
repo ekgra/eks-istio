@@ -1,0 +1,34 @@
+@startuml
+autonumber
+actor Client
+participant "AWS NLB\n(istio-ingressgateway Service)" as NLB
+participant "Ingress Envoy\n(istio-ingressgateway pod)" as GW
+participant "Sidecar Envoy\n(app namespace)" as APP_PROXY
+participant "App Container\n(pod-http / redis)" as APP
+participant "istiod\n(Citadel/CA)" as ISTIOD
+
+== Control Plane (bootstrapping certificates) ==
+ISTIOD -> GW: Issue workload cert (SPIFFE)
+ISTIOD -> APP_PROXY: Issue workload cert (SPIFFE)
+
+== HTTP path (HTTPS on 443) ==
+Client -> NLB: TCP 443 (TLS: Client↔Gateway)
+NLB -> GW: TCP 443
+Client -> GW: TLS handshake (SIMPLE); cert from gw-tls
+GW -> APP_PROXY: mTLS (ISTIO_MUTUAL) over mesh
+APP_PROXY -> APP: plaintext HTTP :8080
+APP -> APP_PROXY: HTTP response
+APP_PROXY -> GW: mTLS back
+GW -> Client: TLS response (terminated at GW)
+
+== Redis path (TLS on 9092) ==
+Client -> NLB: TCP 9092 (TLS: Client↔Gateway, SNI=redis.example.com)
+NLB -> GW: TCP 9092
+Client -> GW: TLS handshake (SIMPLE, gw-tls); SNI matched at Gateway
+GW -> APP_PROXY: mTLS (ISTIO_MUTUAL)
+APP_PROXY -> APP: plaintext TCP :6379
+APP -> APP_PROXY: plaintext TCP
+APP_PROXY -> GW: mTLS back
+GW -> Client: TLS back to client
+
+@enduml
