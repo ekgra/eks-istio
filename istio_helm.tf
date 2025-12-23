@@ -77,6 +77,7 @@ resource "helm_release" "istio_ingress" {
         { name = "https", port = 443, targetPort = 8443, protocol = "TCP" },
         { name = "tcp-kafka", port = 9092, targetPort = 9092, protocol = "TCP" },
         { name = "tcp-redis", port = 6379, targetPort = 6379, protocol = "TCP" },
+        { name = "tcp-cassandra", port = 9042, targetPort = 9042, protocol = "TCP" },
       ]
       # externalTrafficPolicy = "Local" # if you later need client IP preservation
     }

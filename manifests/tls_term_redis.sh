@@ -1,4 +1,4 @@
-rm redis.key redis.crt redis1.key redis1.crt redis2.key redis2.crt 
+rm redis*.key redis*.crt redis*.csr redis*.ext ca.*
 
 aws eks update-kubeconfig --name demo-eks-istio --region ap-southeast-2
 
@@ -101,7 +101,7 @@ spec:
     istio: ingressgateway
   servers:
   - port:
-      number: 6379
+      number: 443
       name: tls-redis
       protocol: TLS
     tls:
@@ -125,7 +125,7 @@ spec:
   - demo/redis1
   tcp:
   - match:
-    - port: 6379
+    - port: 443
     route:
     - destination:
         host: redis1.demo.svc.cluster.local
@@ -188,7 +188,7 @@ spec:
     istio: ingressgateway
   servers:
   - port:
-      number: 6379
+      number: 443
       name: tls-redis
       protocol: TLS
     tls:
@@ -212,7 +212,7 @@ spec:
   - demo/redis2
   tcp:
   - match:
-    - port: 6379
+    - port: 443
     route:
     - destination:
         host: redis2.demo.svc.cluster.local
@@ -224,8 +224,10 @@ YAML
 INGRESS=$(kubectl -n istio-system get svc istio-ingressgateway  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 echo $INGRESS
 
-redis-cli   --tls   --cacert ./redis1.crt   --sni redis1.demo.local   -h redis1.demo.local   -p 6379   
-redis-cli   --tls   --cacert ./redis2.crt   --sni redis2.demo.local   -h redis2.demo.local   -p 6379   
-redis-cli   --tls   --cacert ./redis1.crt   --sni redis1.demo.local   -h redis1.demo.local   -p 6379   
+nslookup $INGRESS
+
+redis-cli   --tls   --cacert ./redis1.crt   --sni redis1.demo.local   -h redis1.demo.local   -p 443   
+redis-cli   --tls   --cacert ./redis2.crt   --sni redis2.demo.local   -h redis2.demo.local   -p 443   
+redis-cli   --tls   --cacert ./redis1.crt   --sni redis1.demo.local   -h redis1.demo.local   -p 443   
 
 
