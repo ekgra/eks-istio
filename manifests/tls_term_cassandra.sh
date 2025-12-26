@@ -1,5 +1,7 @@
 rm cass*.key cass*.crt
 
+aws eks update-kubeconfig --name demo-eks-istio --region ap-southeast-2
+
 openssl req -x509 -nodes -days 365 \
   -newkey rsa:2048 \
   -keyout cass1.key \
