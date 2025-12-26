@@ -1,0 +1,78 @@
+@startuml
+title Kafka external access via Istio TLS termination - Why stunnel+hosts worked vs didn't
+
+actor "Kafka CLI\n(kafka-topics)" as CLI
+participant "OS Resolver\n(/etc/hosts + DNS)" as RES
+participant "stunnel\n(local)" as ST
+participant "AWS LB\n(Istio Ingress)" as LB
+participant "Envoy\nIstio IngressGateway" as ENVOY
+participant "Kafka Broker\n(cp-kafka pod)" as KAFKA
+
+note over KAFKA
+Kafka listens PLAINTEXT on:
+- INTERNAL: 9092
+- EXTERNAL: 443
+Advertised listeners:
+- INTERNAL://cp-kafka.demo.svc:9092
+- EXTERNAL://cp-kafka.demo.local:443
+end note
+
+== (A) Works: cp-kafka.demo.local -> 127.0.0.1 ==
+CLI -> RES : resolve cp-kafka.demo.local
+RES --> CLI : 127.0.0.1
+
+CLI -> ST : TCP connect cp-kafka.demo.local:443\n(actually 127.0.0.1:443)
+
+ST -> LB : TCP connect 3.104.x.x:443\n(real LB)
+ST -> ENVOY : TLS ClientHello (SNI=cp-kafka.demo.local)\n+ validate cert using kafka.crt
+ENVOY --> ST : TLS handshake OK
+ENVOY -> KAFKA : Forward PLAINTEXT Kafka bytes to cp-kafka:443
+
+note over CLI
+Kafka client now fetches metadata.
+Important: it learns broker address from "advertised.listeners".
+end note
+
+CLI -> ST : Connect to broker cp-kafka.demo.local:443\n(metadata says this)
+note right
+Because /etc/hosts maps\ncp-kafka.demo.local -> 127.0.0.1,\nthis ALSO goes through stunnel.
+end note
+
+ST -> LB : TLS to LB again (SNI=cp-kafka.demo.local)
+LB -> ENVOY : TLS terminated
+ENVOY -> KAFKA : PLAINTEXT to cp-kafka:443
+
+note over CLI
+Topic list/create succeeds because ALL broker connections
+still land on local stunnel (due to hosts override).
+end note
+
+== (B) Fails: cp-kafka.demo.local -> LB IP ==
+CLI -> RES : resolve cp-kafka.demo.local
+RES --> CLI : <LB IP> (or LB DNS)
+
+note over CLI
+You start by connecting to stunnel on 19092 (bootstrap).
+Bootstrap goes through stunnel.
+end note
+
+CLI -> ST : TCP connect 127.0.0.1:19092
+ST -> LB : TLS connect <LB IP>:443 (SNI=cp-kafka.demo.local)
+LB -> ENVOY : TLS terminated
+ENVOY -> KAFKA : PLAINTEXT to cp-kafka:443
+
+note over CLI
+Metadata returned advertises broker as cp-kafka.demo.local:443
+end note
+
+CLI -> RES : resolve cp-kafka.demo.local
+RES --> CLI : <LB IP>
+
+CLI -> LB : TCP connect <LB IP>:443\nBUT client sends PLAINTEXT Kafka (no TLS)
+LB -> CLI : connection reset / timeout
+note over CLI
+Result: "Timed out waiting for node assignment"
+because post-metadata broker connection bypasses stunnel and fails.
+end note
+
+@enduml
