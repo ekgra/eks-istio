@@ -411,7 +411,6 @@ See **Workloads & Access Patterns** section above for test commands.
 │   ├── tls_term_redis.sh         # Redis TLS-terminated (2 instances)
 │   ├── tls_term_kafka.sh         # Kafka + Zookeeper (TLS termination)
 │   ├── tls_term_cassandra.sh     # Cassandra (TLS termination)
-│   ├── client-ssl.properties     # Kafka client SSL configuration
 │   └── debug.sh                  # Debugging utilities
 │
 ├── puml/
