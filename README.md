@@ -1,6 +1,6 @@
 # EKS + Istio Ingress Gateway - Complete Demo
 
-A comprehensive Terraform + Kubernetes setup demonstrating **EKS with Istio Ingress Gateway** handling both HTTP and TCP (Redis) workloads with various TLS configurations.
+A comprehensive Terraform + Kubernetes setup demonstrating **EKS with Istio Ingress Gateway** handling HTTP, Redis, Cassandra and Kafka workloads with various TLS configurations.
 
 ## 🏗️ Infrastructure Architecture
 
@@ -26,6 +26,8 @@ A comprehensive Terraform + Kubernetes setup demonstrating **EKS with Istio Ingr
 - **Workloads**:
   - **HTTP Service**: Simple echo server (port 8080)
   - **Redis Instances**: Redis 7 Alpine containers (port 6379 or TLS)
+  - **Kafka Broker**: Confluent Kafka with Zookeeper (port 9092 internal, 443 external)
+  - **Cassandra**: Cassandra 4.1 cluster (port 9042)
 - **Add-ons**: VPC CNI, CoreDNS, kube-proxy
 
 ---
@@ -184,6 +186,84 @@ redis-cli --tls --cacert ./redis2.crt --sni redis2.demo.local -h redis2.demo.loc
 
 ---
 
+### 5. Kafka Workload - TLS Termination
+
+**File**: `manifests/tls_term_kafka.sh`
+
+Deploy Kafka broker with **TLS termination** (Istio decrypts, backend plaintext). Includes Zookeeper for metadata management.
+
+```bash
+bash manifests/tls_term_kafka.sh
+```
+
+**What it does**:
+1. Generates self-signed certificate for `cp-kafka.demo.local`
+2. Deploys Zookeeper (single-node, port 2181)
+3. Deploys Kafka broker with dual listeners:
+   - **INTERNAL**: Port 9092 (plaintext, for in-cluster pods)
+   - **EXTERNAL**: Port 443 (plaintext after Istio TLS termination)
+4. Creates Istio Gateway with `tls.mode: SIMPLE` (TLS terminated by Istio)
+5. Generates Java truststore for TLS client connections
+6. Creates `kafka-topics` commands to test topic creation
+
+**Access**:
+```bash
+# Get NLB endpoint (for external clients)
+INGRESS=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+# Create topic (with TLS)
+kafka-topics \
+  --bootstrap-server cp-kafka.demo.local:443 \
+  --create \
+  --topic test-topic \
+  --partitions 1 \
+  --replication-factor 1 \
+  --command-config client-ssl.properties
+
+# List topics
+kafka-topics \
+  --bootstrap-server cp-kafka.demo.local:443 \
+  --list \
+  --command-config client-ssl.properties
+```
+
+**Components**:
+- `Deployment`: zk (Zookeeper, port 2181)
+- `Service`: zk (Zookeeper service)
+- `Deployment`: cp-kafka (Confluent Kafka)
+  - INTERNAL listener: 9092 (PLAINTEXT)
+  - EXTERNAL listener: 443 (PLAINTEXT after TLS termination)
+- `Service`: cp-kafka (exposes both ports)
+- `Gateway`: TLS on port 443 (mode: SIMPLE, credential: kafka-credential)
+- `VirtualService`: TCP route (Istio decrypts before routing to port 443)
+- `Secret`: kafka-credential (TLS cert/key in istio-system)
+- Java Truststore: `kafka-truststore.jks` (for TLS verification)
+- Client Config: `client-ssl.properties` (SSL settings for kafka-topics CLI)
+
+**Key Concept**: NLB:443 → Istio Gateway (decrypts TLS) → Pod:443 (plaintext Kafka EXTERNAL listener)
+
+**Architecture**:
+```
+External Client (TLS)
+        ↓
+NLB:443
+        ↓
+Istio Gateway (TLS termination)
+        ↓
+Kafka Pod:443 (EXTERNAL listener, plaintext)
+        ↓
+Kafka Internal (Pod:9092 for inter-pod communication)
+        ↓
+Zookeeper:2181
+```
+
+**Why dual listeners?**
+- **INTERNAL (9092)**: Pods within cluster communicate plaintext (faster, VPC-isolated)
+- **EXTERNAL (443)**: External clients use TLS (encrypted, ingress-managed)
+- **Different advertised endpoints**: Kafka tells clients which address to use based on listener
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -232,6 +312,9 @@ bash manifests/tls_redis.sh
 
 # Redis with TLS termination
 bash manifests/tls_term_redis.sh
+
+# Kafka with Zookeeper (TLS termination)
+bash manifests/tls_term_kafka.sh
 ```
 
 ### 3. Verify Istio Gateway
@@ -298,6 +381,8 @@ See **Workloads & Access Patterns** section above for test commands.
 |----------|----------|--------------|----------|----------|----------|
 | 80       | 8080     | 8080         | HTTP     | None     | Plaintext HTTP |
 | 443      | 8080     | 8080         | HTTPS    | SIMPLE   | TLS-terminated HTTP |
+| 443      | 9042     | 9042         | TCP      | SIMPLE   | TLS-terminated Cassandra |
+| 443      | 443      | 443          | TCP      | SIMPLE   | TLS-terminated Kafka (EXTERNAL listener) |
 | 6379     | 6379     | 6379         | TCP      | SIMPLE   | TLS-terminated Redis |
 | 9092     | 6379     | 6379         | TCP      | PASSTHROUGH | Redis with pod-level TLS |
 
@@ -320,11 +405,14 @@ See **Workloads & Access Patterns** section above for test commands.
 ├── terraform.tfstate*    # State files (managed by Terraform)
 │
 ├── manifests/
-│   ├── plain-http_redis.sh   # HTTP plaintext + Redis plaintext
-│   ├── tls_http.sh            # HTTP TLS-terminated
-│   ├── tls_redis.sh           # Redis TLS passthrough (2 instances)
-│   ├── tls_term_redis.sh      # Redis TLS-terminated (2 instances)
-│   └── debug.sh               # Debugging utilities
+│   ├── plain-http_redis.sh       # HTTP plaintext + Redis plaintext
+│   ├── tls_http.sh               # HTTP TLS-terminated
+│   ├── tls_redis.sh              # Redis TLS passthrough (2 instances)
+│   ├── tls_term_redis.sh         # Redis TLS-terminated (2 instances)
+│   ├── tls_term_kafka.sh         # Kafka + Zookeeper (TLS termination)
+│   ├── tls_term_cassandra.sh     # Cassandra (TLS termination)
+│   ├── client-ssl.properties     # Kafka client SSL configuration
+│   └── debug.sh                  # Debugging utilities
 │
 ├── puml/
 │   ├── 00mTLS_strict.puml     # mTLS strict mode diagram
@@ -383,6 +471,14 @@ bash manifests/tls_redis.sh
 terraform apply
 bash manifests/tls_term_redis.sh
 # redis-cli with TLS to Istio; plaintext pod-to-pod
+```
+
+### Test Kafka TLS Termination
+```bash
+terraform apply
+bash manifests/tls_term_kafka.sh
+# Create topics, produce/consume with TLS via Istio
+# Internal pods use plaintext on port 9092
 ```
 
 ---
