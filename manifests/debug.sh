@@ -21,3 +21,5 @@ curl -v \
   --cacert pod-http-demo.crt \
   --connect-to pod-http.demo.local:443:$INGRESS:443 \
   https://pod-http.demo.local/
+
+

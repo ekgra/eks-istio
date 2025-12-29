@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Spring Boot-DemodebugApplication<demodebug>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.example.demodebug.DemodebugApplication",
+      "projectName": "demodebug",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    },
+  {
+      "name": "Attach to Docker JVM (5005)",
+      "type": "java",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 15005
+    }
+  ]
+}
