@@ -1,0 +1,21 @@
+@startuml
+title Kafka Connection Process (Bootstrap -> Metadata -> Reconnect)
+
+skinparam monochrome true
+skinparam defaultTextAlignment left
+
+actor "Kafka Client" as client
+participant "Bootstrap\nNLB:9094" as nlb
+participant "Istio IngressGateway\n(TLS termination)" as istio
+participant "Kafka Broker" as broker
+
+client -> nlb : TLS connect\ncp-kafka.marsephe.aexp.com:9094
+nlb -> istio : 9094/TCP
+istio -> broker : Plain TCP 9094
+broker --> client : Metadata with advertised\nhost:port
+
+client -> nlb : Reconnect to advertised\nhost:port
+nlb -> istio : 9094/TCP
+istio -> broker : Plain TCP 9094
+broker --> client : Produce/consume traffic
+@enduml

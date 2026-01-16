@@ -1,0 +1,25 @@
+@startuml
+title Current Ingress Flow (HTTP vs Kafka TCP+TLS)
+
+skinparam monochrome true
+skinparam defaultTextAlignment left
+
+actor "Intranet Client" as client
+
+participant "NLB" as nlb
+participant "Istio IngressGateway\n(TLS termination)" as istio
+participant "Service" as svc
+participant "Pod" as pod
+
+== HTTP Services (mars) ==
+client --> nlb : https://Namespace-http-svc.marsephe.aexp.com:443
+nlb --> istio : 443/TCP
+istio --> svc : GW/VS route -> service:80
+svc --> pod : port 80
+
+== Kafka (TLS over TCP) ==
+client --> nlb : tls://Namespace-cp-kafka.marsephe.aexp.com:9094
+nlb --> istio : 9094/TCP
+istio --> svc : GW/VS route -> service:9094
+svc --> pod : port 9094
+@enduml
