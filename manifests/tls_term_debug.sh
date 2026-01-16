@@ -131,7 +131,7 @@ spec:
     hosts:
     - svc1.demo.local
   - port:
-      number: 9092
+      number: 5005
       name: tls-jdwp
       protocol: TLS
     tls:
@@ -165,7 +165,7 @@ spec:
           number: 8080
   tcp:
     - match:
-        - port: 9092
+        - port: 5005
       route:
         - destination:
             host: svc1.demo.svc.cluster.local
@@ -267,7 +267,7 @@ spec:
     hosts:
     - svc2.demo.local
   - port:
-      number: 9092
+      number: 5005
       name: tls-jdwp
       protocol: TLS
     tls:
@@ -301,7 +301,7 @@ spec:
           number: 8080
   tcp:
     - match:
-        - port: 9092
+        - port: 5005
       route:
         - destination:
             host: svc2.demo.svc.cluster.local
@@ -335,13 +335,13 @@ curl -v \
 
 curl -v \
   --cacert /Users/outlander/workDir/study/18k8s/09EKS-istio/svc1.crt \
-  --connect-to svc1.demo.local:9092:$INGRESS:9092 \
+  --connect-to svc1.demo.local:5005:$INGRESS:5005 \
   https://svc1.demo.local/hello?name=svc1-debug
 
 
 curl -v \
   --cacert /Users/outlander/workDir/study/18k8s/09EKS-istio/svc2.crt \
-  --connect-to svc2.demo.local:9092:$INGRESS:9092 \
+  --connect-to svc2.demo.local:5005:$INGRESS:5005 \
   https://svc2.demo.local/hello?name=svc2-debug
 
 

@@ -1,4 +1,6 @@
-# Current Flow
+# Kafka Port 9094 Justification (NLB)
+
+## Current Flow
 
 ## HTTP services
 Developers connect to HTTP services via:
@@ -25,7 +27,7 @@ Flow:
 Diagram:
 ![Current Ingress Flow](00flow.png)
 
-# Why We Need Port 9094
+## Why We Need Port 9094
 
 - Kafka broker runs as a non-root container (AMEX policy).
 - Non-root processes cannot bind to privileged ports <1024, so the broker cannot listen on 443 inside the pod.
@@ -36,15 +38,12 @@ Diagram:
 ## Ask
 Please open NLB listener `9094/TCP` and forward it to the Kafka service port `9094`. This keeps the broker non-root compliant while enabling external Kafka connectivity.
 
-# Kafka Connection Process
+## Kafka Connection Process
 Diagram:
-- `01kafka-connection.png`
-
 ![Kafka Connection Process](01kafka-connection.png)
 
 - Kafka requires the externally advertised host:port to be reachable because the bootstrap connection is only the entry point.
 - After the initial handshake, the broker returns metadata containing its advertised address, and the client reconnects to that exact host:port.
 - If the advertised port is not exposed on the NLB, the client cannot establish the follow-up connection, which results in timeouts or a hung request.
 - Therefore, the external advertised endpoint, eg. `namespace-cp-kafka.marsephe.aexp.com:9094` must be directly reachable through the NLB.
-
 
